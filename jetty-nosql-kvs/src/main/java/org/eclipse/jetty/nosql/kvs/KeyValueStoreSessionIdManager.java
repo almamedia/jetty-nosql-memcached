@@ -110,11 +110,7 @@ public abstract class KeyValueStoreSessionIdManager extends AbstractSessionIdMan
      */
     public boolean idInUse(final String idInCluster)
     {
-        byte[] dummy = idInCluster.getBytes(); // dummy string for reserving key
-        boolean exists = !addKey(idInCluster, dummy);
-        // do not check the validity of the session since
-        // we do not save invalidated sessions anymore.
-        return exists;
+        return getKey(idInCluster) != null;
     }
 
     /* ------------------------------------------------------------ */
@@ -254,6 +250,12 @@ public abstract class KeyValueStoreSessionIdManager extends AbstractSessionIdMan
         try
         {
             result = _client.delete(mangleKey(idInCluster));
+            if (result == false) {
+                byte[] raw = _client.get(mangleKey(idInCluster));
+                if (raw == null) {
+                    result = true; // expired already
+                }
+            }
         }
         catch (KeyValueStoreClientException error)
         {

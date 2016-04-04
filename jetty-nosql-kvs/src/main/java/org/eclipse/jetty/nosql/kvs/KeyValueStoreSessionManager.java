@@ -14,6 +14,7 @@ package org.eclipse.jetty.nosql.kvs;
 //You may elect to redistribute this code under either of these licenses.
 //========================================================================
 
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +24,7 @@ import org.eclipse.jetty.nosql.NoSqlSessionManager;
 import org.eclipse.jetty.nosql.kvs.session.AbstractSessionFactory;
 import org.eclipse.jetty.nosql.kvs.session.ISerializableSession;
 import org.eclipse.jetty.nosql.kvs.session.TranscoderException;
+import org.eclipse.jetty.nosql.kvs.session.serializable.SerializableSession;
 import org.eclipse.jetty.nosql.kvs.session.serializable.SerializableSessionFactory;
 import org.eclipse.jetty.server.SessionIdManager;
 import org.eclipse.jetty.server.session.AbstractSession;
@@ -387,7 +389,6 @@ public class KeyValueStoreSessionManager extends NoSqlSessionManager
     }
 
     /*------------------------------------------------------------ */
-    @Override
     protected void invalidateSessions() throws Exception
     {
         // do nothing.
@@ -397,7 +398,7 @@ public class KeyValueStoreSessionManager extends NoSqlSessionManager
 
     /*------------------------------------------------------------ */
     @Override
-    protected void invalidateSession(final String idInCluster)
+    public void invalidateSession(final String idInCluster)
     {
         // do nothing.
         // invalidated sessions will not save in KeyValueStoreSessionManager.save()
@@ -505,18 +506,51 @@ public class KeyValueStoreSessionManager extends NoSqlSessionManager
         return false;
     }
 
+    public void renewSessionId(String oldClusterId, String oldNodeId, String newClusterId, String newNodeId)
+    {
+        synchronized (this)
+        {
+            try
+            {
+                NoSqlSession session = super._sessions.remove(oldClusterId);
+                if (session == null) {
+                    log.info("Couldn't get session for old key {}, creating new empty session", oldClusterId);
+                    session = new SmarterNoSqlSession(this, (new Date()).getTime(), (new Date()).getTime(), oldClusterId, 1);
+                } else if (session.getClusterId() == null) {
+                    log.info("Cluster id {} missing, setting it", oldClusterId);
+                    session.setClusterId(oldClusterId);
+               }
+                super._sessions.put(oldClusterId, session);
+            }
+            catch (Exception e)
+            {
+                log.warn(e);
+            }
+        }
+        super.renewSessionId(oldClusterId, oldNodeId, newClusterId, newNodeId);
+    }
+
     @Override
     protected void update(final NoSqlSession session, final String newClusterId, final String newNodeId)
         throws Exception
     {
-        ISerializableSession data = getKey(session.getClusterId());
-        if (data == null)
-        {
-            log.warn("Couldn't get session data for old key {}", session.getClusterId());
-            return;
+        if (session != null && session.getClusterId() != null) {
+            ISerializableSession data = getKey(session.getClusterId());
+            if (data == null)
+            {
+                log.warn("Couldn't get session data for old key {}", session.getClusterId());
+                return;
+            }
+            deleteKey(session.getClusterId());
+            setKey(newClusterId, data);
+
+        } else {
+            log.debug("Session or sessionid was null, adding new empty session memcached, id="+ newClusterId);
+            SerializableSession s = new SerializableSession();
+            s.setValid(true);
+            s.setId(newClusterId);
+            setKey(newClusterId, s);
         }
-        deleteKey(session.getClusterId());
-        setKey(newClusterId, data);
     }
 
     /*

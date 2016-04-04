@@ -25,8 +25,8 @@
     </license>
   </licenses>
   <scm>
-    <connection>scm:git:github_jetty-nosql-memcached-legacy:almamedia/jetty-nosql-memcached.git</connection>
-    <developerConnection>scm:git:github_jetty-nosql-memcached-legacy:almamedia/jetty-nosql-memcached.git</developerConnection>
+    <connection>scm:git:github_jetty-nosql-memcached:almamedia/jetty-nosql-memcached.git</connection>
+    <developerConnection>scm:git:github_jetty-nosql-memcached:almamedia/jetty-nosql-memcached.git</developerConnection>
     <url>scm:git:git://github.com/almamedia/jetty-nosql-memcached.git</url>
   </scm>
   <developers>
